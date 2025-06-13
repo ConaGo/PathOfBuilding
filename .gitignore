@@ -32,7 +32,7 @@ src/Export/ggpk/*.dll
 *_currency_values.json
 
 # Timeless Jewels
-src/Data/TimelessJewelData/*.bin
+#src/Data/TimelessJewelData/*.bin
 
 # Simplegraphic Debugging
 runtime/imgui.ini
