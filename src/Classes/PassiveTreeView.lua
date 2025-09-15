@@ -307,6 +307,9 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 		elseif hoverNode and hoverNode.alloc and hoverNode.type == "Mastery" and hoverNode.masteryEffects then
 			build.treeTab:OpenMasteryPopup(hoverNode, viewPort)
 			build.buildFlag = true
+		elseif hoverNode and not hoverNode.alloc and hoverNode.type == "Mastery" and hoverNode.masteryEffects then
+			build.treeTab:ModifyNodePopup(hoverNode, viewPort)
+			build.buildFlag = true
 		end
 	end
 
@@ -527,21 +530,31 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 						overlay = "JewelSocketActiveAltRed"
 					end
 				end
-			elseif node.type == "Mastery" then
-				-- This is the icon that appears in the center of many groups
-				if node.masteryEffects then
-					if isAlloc then
-						base = node.masterySprites.activeIcon.masteryActiveSelected
-						effect = node.masterySprites.activeEffectImage.masteryActiveEffect
-					elseif node == hoverNode then
-						base = node.masterySprites.inactiveIcon.masteryConnected
-					else
-						base = node.masterySprites.inactiveIcon.masteryInactive
-					end
+		elseif node.type == "Mastery" then
+			local override = spec.hashOverrides and spec.hashOverrides[node.id]
+			local hasOverride = override ~= nil
+
+			local sprites = hasOverride and tree.spriteMap[override.icon]
+			local effectSprites = hasOverride and tree.spriteMap[override.activeEffectImage]
+
+			if node.masteryEffects then
+				if isAlloc then
+					base = (sprites and sprites.masteryActiveSelected)
+						or (node.masterySprites and node.masterySprites.activeIcon and node.masterySprites.activeIcon.masteryActiveSelected)
+					effect = (effectSprites and effectSprites.masteryActiveEffect)
+						or (node.masterySprites and node.masterySprites.activeEffectImage and node.masterySprites.activeEffectImage.masteryActiveEffect)
+				elseif node == hoverNode then
+					base = (sprites and sprites.masteryConnected)
+						or (node.masterySprites and node.masterySprites.inactiveIcon and node.masterySprites.inactiveIcon.masteryConnected)
 				else
-					base = node.sprites.mastery
+					base = (sprites and sprites.masteryInactive)
+						or (node.masterySprites and node.masterySprites.inactiveIcon and node.masterySprites.inactiveIcon.masteryInactive)
 				end
-				SetDrawLayer(nil, 15)
+			else
+				base = (sprites and sprites.mastery)
+					or (node.sprites and node.sprites.mastery)
+			end
+			SetDrawLayer(nil, 15)
 			else
 				-- Normal node (includes keystones and notables)
 				if node.isTattoo and node.effectSprites then -- trees < 3.22.0 don't have effectSprites
@@ -1015,7 +1028,13 @@ function PassiveTreeViewClass:AddNodeTooltip(tooltip, node, build)
 					line = line .. "  " .. modStr
 				end
 			end
-			tooltip:AddLine(16, ((node.mods[i].extra or not node.mods[i].list) and colorCodes.UNSUPPORTED or colorCodes.MAGIC)..line)
+			if line ~= " " and (node.mods[i].extra or not node.mods[i].list) then 
+				local line = colorCodes.UNSUPPORTED..line
+				line = main.notSupportedModTooltips and (line .. main.notSupportedTooltipText) or line
+				tooltip:AddLine(16, line)
+			else
+				tooltip:AddLine(16, colorCodes.MAGIC..line)
+			end
 		end
 	end
 
@@ -1088,10 +1107,11 @@ function PassiveTreeViewClass:AddNodeTooltip(tooltip, node, build)
 	if node and (node.isTattoo
 			or (node.type == "Normal" and (node.dn == "Strength" or node.dn == "Dexterity" or node.dn == "Intelligence"))
 			or (node.type == "Notable" and #node.sd > 0 and (node.sd[1]:match("+30 to Dexterity") or node.sd[1]:match("+30 to Strength") or node.sd[1]:match("+30 to Intelligence")))
-			or node.type == "Keystone")
+			or (node.type == "Keystone") or (node.type == "Mastery") )
 	then
 		tooltip:AddSeparator(14)
-		tooltip:AddLine(14, colorCodes.TIP.."Tip: Right click to edit the tattoo for this node")
+		local nodeEditType = (node.type == "Mastery") and "runegraft" or "tattoo"
+		tooltip:AddLine(14, colorCodes.TIP.."Tip: Right click to edit the " .. nodeEditType .. " for this node")
 	end
 
 	-- Mod differences
@@ -1132,7 +1152,7 @@ function PassiveTreeViewClass:AddNodeTooltip(tooltip, node, build)
 			end
 		end
 		local count = build:AddStatComparesToTooltip(tooltip, calcBase, nodeOutput, realloc and "^7Reallocating this node will give you:" or node.alloc and "^7Unallocating this node will give you:" or isGranted and "^7This node is granted by an item. Removing it will give you:" or "^7Allocating this node will give you:")
-		if pathLength > 1 and not isGranted then
+		if pathLength > 1 and not isGranted and (#node.intuitiveLeapLikesAffecting == 0 or node.alloc) then
 			count = count + build:AddStatComparesToTooltip(tooltip, calcBase, pathOutput, node.alloc and "^7Unallocating this node and all nodes depending on it will give you:" or "^7Allocating this node and all nodes leading to it will give you:", pathLength)
 		end
 		if count == 0 then

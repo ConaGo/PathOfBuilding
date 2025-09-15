@@ -60,6 +60,7 @@ end)
 
 function GemSelectClass:CalcOutputWithThisGem(calcFunc, gemData, qualityId, useFullDPS)
 	local gemList = self.skillsTab.displayGroup.gemList
+	local displayGemList = self.skillsTab.displayGroup.displayGemList
 	local oldGem
 	if gemList[self.index] then
 		oldGem = copyTable(gemList[self.index], true)
@@ -98,7 +99,9 @@ function GemSelectClass:CalcOutputWithThisGem(calcFunc, gemData, qualityId, useF
 	else
 		gemList[self.index] = nil
 	end
-
+	
+	self.skillsTab.displayGroup.displayGemList = displayGemList
+	
 	return output, gemInstance
 end
 
@@ -716,7 +719,9 @@ function GemSelectClass:AddCommonGemInfo(gemInstance, grantedEffect, addReq, mer
 				if launch.devModeAlt then
 					line = line .. " ^1" .. lineMap[line]
 				end
-				self.tooltip:AddLine(16, colorCodes.UNSUPPORTED .. line)
+				local line = colorCodes.UNSUPPORTED .. line
+				line = main.notSupportedModTooltips and (line .. main.notSupportedTooltipText) or line
+				self.tooltip:AddLine(16, line)
 			end
 		end
 	end

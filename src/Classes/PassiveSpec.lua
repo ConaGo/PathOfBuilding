@@ -1166,6 +1166,7 @@ function PassiveSpecClass:BuildAllDependsAndPaths()
 	self.allocatedNotableCount = 0
 	self.allocatedMasteryTypes = { }
 	self.allocatedMasteryTypeCount = 0
+	self.allocatedTattooTypes = { }
 	for id, node in pairs(self.nodes) do
 		if self.ignoredNodes[id] and self.allocNodes[id] then
 			self.nodes[id].alloc = false
@@ -1176,7 +1177,11 @@ function PassiveSpecClass:BuildAllDependsAndPaths()
 			if node.type == "Mastery" and self.masterySelections[id] then
 				local effect = self.tree.masteryEffects[self.masterySelections[id]]
 				if effect and self.allocNodes[id] then
-					node.sd = effect.sd
+					if self.hashOverrides and self.hashOverrides[id] then
+						self:ReplaceNode(node, self.hashOverrides[id])
+					else
+						node.sd = effect.sd
+					end
 					node.allMasteryOptions = false
 					node.reminderText = { "Tip: Right click to select a different effect" }
 					self.tree:ProcessStats(node)
@@ -1201,6 +1206,13 @@ function PassiveSpecClass:BuildAllDependsAndPaths()
 				self:AddMasteryEffectOptionsToNode(node)
 			elseif node.type == "Notable" and node.alloc then
 				self.allocatedNotableCount = self.allocatedNotableCount + 1
+			end
+			if node.isTattoo and node.alloc and node.overrideType then
+				if not self.allocatedTattooTypes[node.overrideType] then
+					self.allocatedTattooTypes[node.overrideType] = 1
+				else
+					self.allocatedTattooTypes[node.overrideType] = self.allocatedTattooTypes[node.overrideType] + 1
+				end
 			end
 		end
 	end
@@ -1386,6 +1398,7 @@ function PassiveSpecClass:ReplaceNode(old, newNode)
 	end
 	old.dn = newNode.dn
 	old.sd = newNode.sd
+	old.name = newNode.name
 	old.mods = newNode.mods
 	old.modKey = newNode.modKey
 	old.modList = new("ModList")
@@ -1393,6 +1406,7 @@ function PassiveSpecClass:ReplaceNode(old, newNode)
 	old.sprites = newNode.sprites
 	old.effectSprites = newNode.effectSprites
 	old.isTattoo = newNode.isTattoo
+	old.overrideType = newNode.overrideType
 	old.keystoneMod = newNode.keystoneMod
 	old.icon = newNode.icon
 	old.spriteId = newNode.spriteId
@@ -1908,12 +1922,16 @@ function PassiveSpecClass:CreateUndoState()
 	for mastery, effect in pairs(self.masterySelections) do
 		selections[mastery] = effect
 	end
+	local hashOverridesCopy = { }
+	for node, override in pairs(self.hashOverrides) do
+		hashOverridesCopy[node] = override
+	end
 	return {
 		classId = self.curClassId,
 		ascendClassId = self.curAscendClassId,
 		secondaryAscendClassId = self.secondaryAscendClassId,
 		hashList = allocNodeIdList,
-		hashOverrides = self.hashOverrides,
+		hashOverrides = hashOverridesCopy,
 		masteryEffects = selections,
 		treeVersion = self.treeVersion
 	}
