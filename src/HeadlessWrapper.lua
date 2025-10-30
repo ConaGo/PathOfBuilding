@@ -7,7 +7,7 @@
 -- #MACOS local deflate = require("LibDeflate")
 -- #MACOS package.path =
 -- #MACOS "?.lua;?/init.lua;src/?.lua;src/?/init.lua;../runtime/lua/?.lua;../runtime/lua/sha1/init.lua;./Data/TimelessJewelData/BrutalRestraint.zip"
-package.path = package.path .. ";src/?.lua;src/?/init.lua;../runtime-win32/lua/?.lua" --;../runtime-win32/lua/sha1/init.lua;./Data/TimelessJewelData/BrutalRestraint.zip"
+package.path = package.path .. ";src/?.lua;src/?/init.lua;../runtime-win32/lua/?.lua;../runtime/lua/?.lua" --;../runtime-win32/lua/sha1/init.lua;./Data/TimelessJewelData/BrutalRestraint.zip"
 package.cpath = package.cpath .. ";../runtime-win32/lua/?.so;../runtime-win32/lua/?.dll;../runtime-win32/lua/?.dylib;../runtime/?.dll"
 local callbackTable = {}
 local mainObject
