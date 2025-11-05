@@ -66,6 +66,10 @@ end
 function GetScreenScale()
 	return 1
 end
+function GetDPIScaleOverridePercent()
+	return 1
+end
+function SetDPIScaleOverridePercent(scale) end
 function SetClearColor(r, g, b, a) end
 
 function SetDrawLayer(layer, subLayer) end
