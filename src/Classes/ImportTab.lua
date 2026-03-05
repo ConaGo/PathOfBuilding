@@ -1065,6 +1065,23 @@ function ImportTabClass:ImportItem(itemData, slotName)
 			end
 		end
 	end
+	if itemData.foilVariation or itemData.isRelic then
+		local foilVariants = {
+			"Amethyst",
+			"Verdant",
+			"Ruby",
+			"Cobalt",
+			"Sunset",
+			"Aureate",
+			"Celestial Quartz",
+			"Celestial Ruby",
+			"Celestial Emerald",
+			"Celestial Aureate",
+			"Celestial Pearl",
+			"Celestial Amethyst",
+		}
+		item.foilType = foilVariants[itemData.foilVariation] or "Rainbow"
+	end
 
 	-- Add and equip the new item
 	item:BuildAndParseRaw()
@@ -1126,7 +1143,7 @@ function ImportTabClass:ImportSocketedItems(item, socketedItems, slotName)
 					itemSocketGroupList[groupID] = { label = "", enabled = true, gemList = { }, slot = slotName }
 				end
 				local socketGroup = itemSocketGroupList[groupID]
-				if not socketedItem.support and socketGroup.gemList[1] and socketGroup.gemList[1].support and item.title ~= "Dialla's Malefaction" then
+				if not socketedItem.support and socketGroup.gemList[1] and socketGroup.gemList[1].support and not (item.title and item.title:match("Dialla's Malefaction")) then
 					-- If the first gemInstance is a support gemInstance, put the first active gemInstance before it
 					t_insert(socketGroup.gemList, 1, gemInstance)
 				else

@@ -58,8 +58,7 @@ function imageHandleClass:ImageSize()
 end
 
 -- Rendering
-function RenderInit() end
-
+function RenderInit(flag, ...) end
 function GetScreenSize()
 	return 1920, 1080
 end
@@ -230,6 +229,15 @@ function SetProfiling(isEnabled) end
 function Restart() end
 
 function Exit() end
+function TakeScreenshot() end
+
+---@return string? provider
+---@return string? version
+---@return number? status
+function GetCloudProvider(fullPath)
+	return nil, nil, nil
+end
+
 
 local l_require = require
 function require(name)

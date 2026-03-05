@@ -122,7 +122,7 @@ function launch:OnFrame()
 		self:DrawPopup(r, g, b, "^0%s", self.promptMsg)
 	end
 	if self.doRestart then
-		local screenW, screenH = GetScreenSize()
+		local screenW, screenH = GetVirtualScreenSize()
 		SetDrawColor(0, 0, 0, 0.75)
 		DrawImage(nil, 0, 0, screenW, screenH)
 		SetDrawColor(1, 1, 1)
@@ -250,7 +250,7 @@ end
 ---Download the given page in the background, and calls the provided callback function when done:
 ---@param url string
 ---@param callback fun(response:table, errMsg:string) @ response = { header, body }
----@param params table @ params = { header, body }
+---@param params? table @ params = { header, body }
 function launch:DownloadPage(url, callback, params)
 	params = params or {}
 	local script = [[
@@ -387,7 +387,7 @@ function launch:RunPromptFunc(key)
 end
 
 function launch:DrawPopup(r, g, b, fmt, ...)
-	local screenW, screenH = GetScreenSize()
+	local screenW, screenH = GetVirtualScreenSize()
 	SetDrawColor(0, 0, 0, 0.5)
 	DrawImage(nil, 0, 0, screenW, screenH)
 	local txt = string.format(fmt, ...)

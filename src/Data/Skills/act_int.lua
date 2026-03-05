@@ -11142,6 +11142,126 @@ skills["KineticFusillade"] = {
 	},
 	statDescriptionScope = "skill_stat_descriptions",
 	castTime = 1,
+	parts = {
+		{
+			name = "All Projectiles",
+		},
+		{
+			name = "1 Projectile"
+		},
+	},
+	preDamageFunc = function(activeSkill, output, breakdown)
+		local skillData = activeSkill.skillData
+		local t_insert = table.insert
+		local s_format = string.format
+
+		if activeSkill.skillPart == 1 then
+			-- Set base dpsMultiplier for projectile count
+			activeSkill.skillData.dpsMultiplier = output.ProjectileCount
+
+			-- Calculate average damage scaling for sequential projectiles
+			-- Each projectile does more damage based on how many came before it
+			local moreDamagePerProj = skillData.damagePerProjectile or 0
+			if moreDamagePerProj ~= 0 and output.ProjectileCount > 1 then
+				-- Average multiplier: sum of (0, X, 2X, 3X, ..., (n-1)X) / n
+				-- This equals: X * (0 + 1 + 2 + ... + (n-1)) / n = X * n(n-1)/2 / n = X * (n-1)/2
+				local avgMoreMult = moreDamagePerProj * (output.ProjectileCount - 1) / 2
+				activeSkill.skillModList:NewMod("Damage", "MORE", avgMoreMult, "Skill:KineticFusillade", ModFlag.Hit)
+
+				-- Store the average multiplier for display
+				output.KineticFusilladeAvgMoreMult = avgMoreMult
+
+				if breakdown then
+					local breakdownSequential = {}
+					t_insert(breakdownSequential, s_format("^8Each projectile deals^7 %d%%^8 more damage per previous projectile", moreDamagePerProj))
+					t_insert(breakdownSequential, s_format("^8With^7 %d^8 projectiles, damage progression is:^7", output.ProjectileCount))
+					for i = 1, output.ProjectileCount do
+						local projMult = moreDamagePerProj * (i - 1)
+						t_insert(breakdownSequential, s_format("  ^8Projectile %d:^7 %d%%^8 more damage", i, projMult))
+					end
+					t_insert(breakdownSequential, s_format("^8Average more multiplier:^7 %.1f%%", avgMoreMult))
+					breakdown.KineticFusilladeSequentialBreakdown = breakdownSequential
+					breakdown.ProjectileCount = breakdown.ProjectileCount or {}
+					t_insert(breakdown.ProjectileCount,s_format("^8Maximum number of Kinetic Fusilade projectiles:^7 %d", activeSkill.skillModList:Override(activeSkill.skillCfg, "ProjectileCountMaximum")))
+				end
+			end
+		end
+	end,
+	postCritFunc = function(activeSkill, output, breakdown)
+		local skillData = activeSkill.skillData
+		local t_insert = table.insert
+		local s_format = string.format
+
+		local baseDelayBetweenProjectiles = skillData.delayPerProjectile
+		local projectileCount = 1
+
+		if activeSkill.skillPart == 1 then
+			projectileCount = output.ProjectileCount
+		end
+
+		-- Calculate effective attack rate accounting for delayed projectile firing
+		-- Projectiles orbit for base_skill_effect_duration before firing
+		-- Recasting resets the timer, so attacking too fast wastes potential damage
+		-- Formula: totalTime = (hoverDelay + delayBetweenProj * nProj) * durationMod
+		local hoverDelay = skillData.duration
+		local durationMod = output.DurationMod
+		local baseTimeForAllProjectiles = baseDelayBetweenProjectiles * projectileCount
+		local effectiveDelay = (hoverDelay + baseTimeForAllProjectiles) * durationMod
+		local maxEffectiveAPS = 1 / effectiveDelay
+		local currentAPS = output.Speed
+
+		output.KineticFusilladeMaxEffectiveAPS = maxEffectiveAPS
+
+		if breakdown then
+			local breakdownAPS = {}
+			t_insert(breakdownAPS, s_format("^1(These calculations are speculative and best-effort)"))
+			t_insert(breakdownAPS, s_format("^8Base hover delay:^7 %.3fs", hoverDelay))
+			t_insert(breakdownAPS, s_format("^8Base delay between projectiles:^7 %.3fs", baseDelayBetweenProjectiles))
+			t_insert(breakdownAPS, s_format("^8Base time for^7 %d ^8projectiles:^7 %.3fs x %d = %.3fs", projectileCount, baseDelayBetweenProjectiles, projectileCount, baseTimeForAllProjectiles))
+			t_insert(breakdownAPS, s_format("^8Duration modifier:^7 %.4f", durationMod))
+			t_insert(breakdownAPS, s_format("^8Effective delay:^7 (%.3f + %.3f) x %.4f = %.4fs", hoverDelay, baseTimeForAllProjectiles, durationMod, effectiveDelay))
+			t_insert(breakdownAPS, s_format("^8Max effective attack rate:^7 1 / %.4f = %.2f", effectiveDelay, maxEffectiveAPS))
+			if currentAPS then
+				local currentInc = activeSkill.skillModList:Sum("INC", activeSkill.skillCfg, "Speed")
+				local neededInc = ((maxEffectiveAPS / currentAPS) * (1 + currentInc / 100) - 1) * 100
+				local additionalInc = neededInc - currentInc
+				t_insert(breakdownAPS, "")
+				if currentAPS > maxEffectiveAPS then
+					t_insert(breakdownAPS, s_format("^1Current attack rate (%.2f) exceeds max effective rate!", currentAPS))
+					t_insert(breakdownAPS, s_format("^1Reduce attack speed by at least^7 %d%% ^1", math.ceil(-additionalInc)))
+					t_insert(breakdownAPS, s_format("^1DPS is reduced by %.1f%%", (1 - maxEffectiveAPS / currentAPS) * 100))
+				else
+					t_insert(breakdownAPS, s_format("^2Current attack rate (%.2f) is within effective limits", currentAPS))
+					t_insert(breakdownAPS, s_format("^2You can add up to^7 %d%% ^2increased attack speed", math.floor(additionalInc)))
+				end
+			end
+			breakdown.KineticFusilladeMaxEffectiveAPS = breakdownAPS
+		end
+
+		-- Adjust dpsMultiplier if attacking too fast (only for "All Projectiles" mode)
+		if activeSkill.skillPart == 1 then
+			if currentAPS and currentAPS > maxEffectiveAPS then
+				local efficiencyRatio = maxEffectiveAPS / currentAPS
+				local originalMultiplier = skillData.dpsMultiplier or output.ProjectileCount
+				skillData.dpsMultiplier = originalMultiplier * efficiencyRatio
+			end
+		end
+	end,
+	statMap = {
+		["kinetic_fusillade_damage_+%_final_per_projectile_fired"] = {
+			skill("damagePerProjectile", nil),
+		},
+		["kinetic_fusillade_base_delay_between_projectiles_ms"] = {
+			skill("delayPerProjectile", nil),
+			div = 1000,
+		},
+		["quality_display_kinetic_fusillade_is_gem"] = {
+			-- Display only
+		},
+		["kinetic_fusillade_maximum_floating_projectiles"] = {
+			mod("ProjectileCountMaximum", "OVERRIDE", nil)
+		},
+	},
 	baseFlags = {
 		attack = true,
 		projectile = true,
@@ -15213,7 +15333,7 @@ skills["RighteousFireAltX"] = {
 	end,
 	statMap = {
 		["base_nonlethal_fire_damage_%_of_maximum_mana_taken_per_minute"] = {
-			mod("FireDegen", "BASE", nil, 0, 0, { type = "PerStat", stat = "Mana", div = 1}, { type = "GlobalEffect", effectType = "Buff" }, { type = "StatThreshold", stat = "LifeUnreserved", threshold = 2 }),
+			mod("FireDegen", "BASE", nil, 0, 0, { type = "PerStat", stat = "Mana", div = 1}, { type = "GlobalEffect", effectType = "Buff" }, { type = "StatThreshold", stat = "LifeUnreserved", threshold = 2 }, { type = "StatThreshold", stat = "Mana", threshold = 1 }),
 			div = 6000,
 		},
 		["base_righteous_fire_%_of_max_mana_to_deal_to_nearby_per_minute"] = {
@@ -15221,7 +15341,7 @@ skills["RighteousFireAltX"] = {
 			div = 6000,
 		},
 		["righteous_fire_cast_speed_+%_final"] = {
-			mod("Speed", "MORE", nil, ModFlag.Cast, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "StatThreshold", stat = "LifeUnreserved", threshold = 2 }),
+			mod("Speed", "MORE", nil, ModFlag.Cast, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "StatThreshold", stat = "LifeUnreserved", threshold = 2 }, { type = "StatThreshold", stat = "Mana", threshold = 1 }),
 		},
 	},
 	baseFlags = {
@@ -16663,7 +16783,7 @@ skills["SupportSpellslinger"] = {
 	statDescriptionScope = "gem_stat_descriptions",
 	statMap = {
 		["gain_%_of_base_wand_damage_as_added_spell_damage"] = {
-			skill("gainPercentBaseWandDamage", nil),
+			skill("gainPercentBaseWandDamageToSpells", nil),
 		},
 		["support_spellslinger_damage_+%_final"] = {
 			mod("Damage", "MORE", nil, 0, bit.bor(KeywordFlag.Hit, KeywordFlag.Ailment)),
